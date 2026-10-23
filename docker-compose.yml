@@ -1,0 +1,52 @@
+# Vision-Guided Robot — 服务编排
+# 启动: docker compose up -d
+# 停止: docker compose down
+version: '3.8'
+
+services:
+  vision:
+    build:
+      context: .
+      dockerfile: Dockerfile.vision
+    ports:
+      - "8801:8801"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - VISION_PORT=8801
+    restart: unless-stopped
+
+  robot:
+    build:
+      context: .
+      dockerfile: Dockerfile.robot
+    ports:
+      - "8802:8802"
+    restart: unless-stopped
+
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    ports:
+      - "8803:8803"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      - VISION_URL=http://vision:8801
+      - ROBOT_URL=http://robot:8802
+    depends_on:
+      - vision
+      - robot
+    restart: unless-stopped
+
+  web:
+    image: nginx:alpine
+    ports:
+      - "8800:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - agent
+    restart: unless-stopped

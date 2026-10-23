@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>视觉引导工业机器人智能操控系统</title>
+<link rel="stylesheet" href="css/style.css?v=4">
+</head>
+<body>
+
+<!-- ═══════════════════════ 顶部状态栏 ═══════════════════════ -->
+<header class="top-bar">
+  <div class="brand">
+    <span class="logo-icon">&#x1F916;</span>
+    <h1>视觉引导工业机器人智能操控系统</h1>
+  </div>
+  <div class="service-status">
+    <span id="status-vision" class="status-dot" title="视觉服务">&#x1F441;</span>
+    <span id="status-robot" class="status-dot" title="机器人服务">&#x1F6E0;</span>
+    <span id="status-agent" class="status-dot" title="Agent 服务">&#x1F9E0;</span>
+    <span id="status-scene" class="status-dot" title="3D场景">&#x1F3AC;</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════ 主区域 2栏 ═══════════════════════ -->
+<main class="main-grid">
+
+  <!-- 左: 3D 数字孪生仿真 -->
+  <section class="panel panel-3d">
+    <div class="panel-header">
+      <span class="panel-title">&#x1F4CD; 3D 数字孪生仿真</span>
+      <div class="panel-actions">
+        <button onclick="resetView()" title="重置视角">&#x1F504; 视角</button>
+        <button onclick="toggleGrid()" title="切换网格">&#x1F4D0; 网格</button>
+        <button onclick="resetRobot()" title="机器人回零">&#x1F3E0; 回零</button>
+        <button onclick="readyRobot()" title="就绪位姿">&#x1F939; 就绪</button>
+      </div>
+    </div>
+    <div id="canvas-container">
+      <canvas id="robot-canvas"></canvas>
+    </div>
+    <div class="overlay-joint-display" id="robot-state-display">
+      关节: 就绪中...
+    </div>
+    <div class="overlay-scene-health" id="scene-health-display">
+      <!-- 场景健康状态 -->
+    </div>
+  </section>
+
+  <!-- 右: 控制面板 (模式切换) -->
+  <aside class="panel panel-control">
+    <div class="panel-header">
+      <span class="panel-title" id="mode-title">&#x1F4AC; Agent 控制台</span>
+      <span class="panel-subtitle" id="pipeline-status">就绪</span>
+    </div>
+
+    <!-- 模式切换标签 -->
+    <div class="mode-tabs">
+      <button id="mode-tab-agent" class="mode-tab active" onclick="switchMode('agent')">
+        &#x1F9E0; Agent
+      </button>
+      <button id="mode-tab-jog" class="mode-tab" onclick="switchMode('jog')">
+        &#x1F3AE; 点动
+      </button>
+      <button id="mode-tab-program" class="mode-tab" onclick="switchMode('program')">
+        &#x1F4BB; 程序
+      </button>
+    </div>
+
+    <!-- ── Agent 模式 ── -->
+    <div id="mode-agent-panel" class="mode-panel">
+      <div class="quick-actions">
+        <button onclick="quickCommand('分析当前工作场景')">&#x1F50D; 分析场景</button>
+        <button onclick="quickCommand('把红色工件抓起来放到左边')">&#x1F91A; 抓取红色</button>
+        <button onclick="quickCommand('把蓝色工件移到右边托盘')">&#x1F4E6; 移动蓝色</button>
+      </div>
+
+      <div id="chat-log" class="chat-log">
+        <div class="message system">
+          <div class="msg-content">&#x1F916; 系统就绪 — 你可以用自然语言给机器人下指令。</div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <textarea id="user-input" rows="2" placeholder="输入自然语言指令..."
+          onkeydown="handleKeyDown(event)"></textarea>
+        <div class="input-actions">
+          <button id="send-btn" onclick="sendMessage()">&#x27A1; 发送</button>
+          <button id="stop-btn" onclick="stopExecution()" style="display:none">&#x23F9; 停止</button>
+        </div>
+      </div>
+
+      <div id="progress-bar" class="progress-bar" style="display:none">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- ── Jog 模式 ── -->
+    <div id="mode-jog-panel" class="mode-panel" style="display:none">
+      <div class="jog-content">
+        <div class="jog-mode-tabs">
+          <button id="jog-mode-joint" class="jog-mode-btn active" onclick="setJogMode('joint')">关节</button>
+          <button id="jog-mode-cart" class="jog-mode-btn" onclick="setJogMode('cart')">笛卡尔</button>
+          <button id="jog-mode-teach" class="jog-mode-btn" onclick="setJogMode('teach')">示教</button>
+        </div>
+
+        <div id="jog-joint-panel" class="jog-subpanel">
+          <div class="jog-axis-row"><span class="jog-axis-label">J1</span><button class="jog-btn jog-minus" onclick="jogJoint(0,-1)">−</button><span id="jog-j1-val" class="jog-axis-val">0.0°</span><button class="jog-btn jog-plus" onclick="jogJoint(0,1)">+</button></div>
+          <div class="jog-axis-row"><span class="jog-axis-label">J2</span><button class="jog-btn jog-minus" onclick="jogJoint(1,-1)">−</button><span id="jog-j2-val" class="jog-axis-val">0.0°</span><button class="jog-btn jog-plus" onclick="jogJoint(1,1)">+</button></div>
+          <div class="jog-axis-row"><span class="jog-axis-label">J3</span><button class="jog-btn jog-minus" onclick="jogJoint(2,-1)">−</button><span id="jog-j3-val" class="jog-axis-val">0.0°</span><button class="jog-btn jog-plus" onclick="jogJoint(2,1)">+</button></div>
+          <div class="jog-axis-row"><span class="jog-axis-label">J4</span><button class="jog-btn jog-minus" onclick="jogJoint(3,-1)">−</button><span id="jog-j4-val" class="jog-axis-val">0.0°</span><button class="jog-btn jog-plus" onclick="jogJoint(3,1)">+</button></div>
+          <div class="jog-axis-row"><span class="jog-axis-label">J5</span><button class="jog-btn jog-minus" onclick="jogJoint(4,-1)">−</button><span id="jog-j5-val" class="jog-axis-val">0.0°</span><button class="jog-btn jog-plus" onclick="jogJoint(4,1)">+</button></div>
+          <div class="jog-axis-row"><span class="jog-axis-label">J6</span><button class="jog-btn jog-minus" onclick="jogJoint(5,-1)">−</button><span id="jog-j6-val" class="jog-axis-val">0.0°</span><button class="jog-btn jog-plus" onclick="jogJoint(5,1)">+</button></div>
+        </div>
+
+        <div id="jog-cart-panel" class="jog-subpanel" style="display:none">
+          <div class="jog-axis-row"><span class="jog-axis-label">X</span><button class="jog-btn jog-minus" onclick="jogCartesian('x',-1)">−</button><span id="jog-cart-x" class="jog-axis-val">0.0</span><button class="jog-btn jog-plus" onclick="jogCartesian('x',1)">+</button></div>
+          <div class="jog-axis-row"><span class="jog-axis-label">Y</span><button class="jog-btn jog-minus" onclick="jogCartesian('y',-1)">−</button><span id="jog-cart-y" class="jog-axis-val">0.0</span><button class="jog-btn jog-plus" onclick="jogCartesian('y',1)">+</button></div>
+          <div class="jog-axis-row"><span class="jog-axis-label">Z</span><button class="jog-btn jog-minus" onclick="jogCartesian('z',-1)">−</button><span id="jog-cart-z" class="jog-axis-val">0.0</span><button class="jog-btn jog-plus" onclick="jogCartesian('z',1)">+</button></div>
+        </div>
+
+        <div id="jog-teach-panel" class="jog-subpanel" style="display:none">
+          <div class="teach-points-list" id="teach-points-list">
+            <span class="teach-empty">未记录示教点</span>
+          </div>
+          <div class="teach-actions">
+            <button class="teach-btn" onclick="recordTeachPoint()">&#x1F4CD; 记录</button>
+            <button class="teach-btn" onclick="playTeachPoints()">&#x25B6; 回放</button>
+            <button class="teach-btn" onclick="clearTeachPoints()">&#x1F5D1; 清空</button>
+          </div>
+        </div>
+
+        <div class="jog-speed-row">
+          <span class="jog-speed-label">步长</span>
+          <select id="jog-step" class="jog-step-select" onchange="updateJogStep()">
+            <option value="0.5">0.5° / 5mm</option>
+            <option value="1" selected>1° / 10mm</option>
+            <option value="5">5° / 25mm</option>
+            <option value="10">10° / 50mm</option>
+          </select>
+        </div>
+        <div class="jog-speed-row">
+          <span class="jog-speed-label">速度</span>
+          <input type="range" id="jog-speed" class="jog-speed-slider" min="10" max="100" value="30" oninput="updateJogSpeed()">
+          <span id="jog-speed-val" class="jog-speed-val">30%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Program 模式 ── -->
+    <div id="mode-program-panel" class="mode-panel" style="display:none">
+      <div class="panel-actions" style="padding:4px 8px;gap:4px;display:flex;">
+        <button onclick="generateProgram()">&#x1F504; 生成</button>
+        <button onclick="exportProgram()">&#x1F4E4; 导出</button>
+        <button onclick="sendProgramToRobot()">&#x27A1; 发送</button>
+      </div>
+      <div class="program-container">
+        <pre id="program-code" class="program-code">; FANUC LR Mate 200iD 自主生成程序
+; 执行 Agent 任务后自动生成
+; 或点击"生成"按钮手动生成
+</pre>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- ═══════════════════════ 底部 3 面板 (只读监控) ═══════════════════════ -->
+<footer class="bottom-panels">
+
+  <!-- 视觉画面 -->
+  <section class="panel panel-vision">
+    <div class="panel-header">
+      <span class="panel-title">&#x1F4F7; 视觉检测画面</span>
+      <span id="vision-fps" class="panel-subtitle">YOLOv8 + Virtual Cam</span>
+    </div>
+    <div class="vision-container">
+      <canvas id="vision-canvas" width="320" height="240"></canvas>
+      <div id="vision-placeholder" class="vision-placeholder">
+        <span>等待视觉数据...</span>
+      </div>
+    </div>
+    <div id="coord-info" class="coord-info">
+      <span class="muted">点击3D场景中的工件查看坐标转换链</span>
+    </div>
+  </section>
+
+  <!-- 关节状态 -->
+  <section class="panel panel-joints">
+    <div class="panel-header">
+      <span class="panel-title">&#x1F527; 关节角度</span>
+    </div>
+    <table class="joint-table">
+      <thead><tr><th>轴</th><th>角度(&deg;)</th><th>弧度</th></tr></thead>
+      <tbody>
+        <tr><td>J1</td><td id="j1-deg">0.00</td><td id="j1-rad">0.000</td></tr>
+        <tr><td>J2</td><td id="j2-deg">0.00</td><td id="j2-rad">0.000</td></tr>
+        <tr><td>J3</td><td id="j3-deg">0.00</td><td id="j3-rad">0.000</td></tr>
+        <tr><td>J4</td><td id="j4-deg">0.00</td><td id="j4-rad">0.000</td></tr>
+        <tr><td>J5</td><td id="j5-deg">0.00</td><td id="j5-rad">0.000</td></tr>
+        <tr><td>J6</td><td id="j6-deg">0.00</td><td id="j6-rad">0.000</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- TCP 坐标 -->
+  <section class="panel panel-tcp">
+    <div class="panel-header">
+      <span class="panel-title">&#x1F4CD; TCP 末端坐标</span>
+    </div>
+    <table class="tcp-table">
+      <tbody>
+        <tr><td>X</td><td id="tcp-x">0.00</td><td>mm</td></tr>
+        <tr><td>Y</td><td id="tcp-y">0.00</td><td>mm</td></tr>
+        <tr><td>Z</td><td id="tcp-z">0.00</td><td>mm</td></tr>
+        <tr><td>Rx</td><td id="tcp-rx">0.0</td><td>&deg;</td></tr>
+        <tr><td>Ry</td><td id="tcp-ry">0.0</td><td>&deg;</td></tr>
+        <tr><td>Rz</td><td id="tcp-rz">0.0</td><td>&deg;</td></tr>
+        <tr class="gripper-row"><td>夹爪</td><td id="tcp-gripper" colspan="2">松开</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</footer>
+
+<!-- Three.js -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="js/app.js?v=14"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+[submodule "models/lrmate-200id"]
+	path = models/lrmate-200id
+	url = https://github.com/mattj23/lrmate-200id.git
+	branch = main

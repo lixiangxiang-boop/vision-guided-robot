@@ -1,0 +1,36 @@
+# ═══════════════════════════════════════════════════════════════
+# systemd 服务 — 视觉引导机器人 (3个服务合一)
+# ═══════════════════════════════════════════════════════════════
+#
+# 安装:
+#   sudo cp deploy/vision-robot.service /etc/systemd/system/
+#   sudo cp deploy/vision-robot-vision.service /etc/systemd/system/
+#   sudo cp deploy/vision-robot-robot.service /etc/systemd/system/
+#   sudo cp deploy/vision-robot-agent.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable vision-robot-{vision,robot,agent}
+#   sudo systemctl start vision-robot-{vision,robot,agent}
+#
+# 管理:
+#   sudo systemctl status vision-robot-*    # 查看所有服务状态
+#   sudo systemctl restart vision-robot-*   # 重启所有
+#   sudo journalctl -u vision-robot-agent -f  # 查看日志
+# ═══════════════════════════════════════════════════════════════
+
+[Unit]
+Description=视觉引导机器人 - 视觉服务 (YOLOv8)
+After=network.target
+
+[Service]
+Type=simple
+User=www
+WorkingDirectory=/www/wwwroot/YOUR_DOMAIN.COM
+EnvironmentFile=/www/wwwroot/YOUR_DOMAIN.COM/.env
+ExecStart=/usr/bin/python3 services/vision_service.py --port 8801
+Restart=always
+RestartSec=5
+StandardOutput=append:/www/wwwroot/YOUR_DOMAIN.COM/logs/vision.log
+StandardError=append:/www/wwwroot/YOUR_DOMAIN.COM/logs/vision-error.log
+
+[Install]
+WantedBy=multi-user.target
